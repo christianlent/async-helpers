@@ -34,7 +34,7 @@ class AsyncHelpers {
    * @api public
    */
   helper(name, fn) {
-    if (name && typeof name === 'object' && !Array.isArray(name)) {
+    if (isObject(name)) {
       Object.keys(name).forEach((key) => {
         this.helper(key, name[key]);
       });
@@ -54,7 +54,7 @@ class AsyncHelpers {
   }
 
   wrapHelper(name, helper) {
-    if (name && typeof name === 'object' && !Array.isArray(name)) {
+    if (isObject(name)) {
       Object.keys(name).forEach((key) => {
         this.wrapHelper(key, name[key]);
       });
@@ -118,28 +118,45 @@ class AsyncHelpers {
     }
     const { id, name, fn, args, ctx, value } = this.helperIds[key];
 
-    if ('value' in this.helperIds[key]) {
+    if ('value' in this.helperIds[id]) {
       return value;
     }
 
     const self = this;
     const argz = args.map(function func(arg) {
       const item = self.helperIds[arg];
-      return item
-        ? item.fn.apply(item.ctx, item.args.map(func))
-        : arg;
+      if (item) {
+        return self.resolveId(item.id);
+      }
+      // if (isObject(arg) && isObject(arg.hash)) {
+      //   Object.keys(arg.hash).forEach(async(k) => {
+      //     arg.hash[k] = arg.hash[k] && arg.hash[k].includes(self.prefix)
+      //       ? await func(arg.hash[k])
+      //       : arg.hash[k];
+      //   });
+      // }
+      return arg;
     });
 
     try {
-      this.helperIds[key].value = await fn.apply(ctx, await Promise.all(argz));
+      this.helperIds[id].value = await fn.apply(ctx, await Promise.all(argz));
     } catch (err) {
       const msg = `AsyncHelpers#resolveId: helper with name "${name}" and id "${id}" failed`;
 
       throw new Error(`${msg}: ${err.message}`);
     }
 
-    return this.helperIds[key].value;
+    const val = this.helperIds[id].value;
+    if (typeof val === 'string' && val.includes(this.prefix)) {
+      return this.resolveIds(val);
+    }
+
+    return val;
   }
+}
+
+function isObject(val) {
+  return val && typeof val === 'object' && !Array.isArray(val);
 }
 
 module.exports = AsyncHelpers;

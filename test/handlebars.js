@@ -1,10 +1,9 @@
 'use strict';
 
-require('mocha');
 var assert = require('assert');
 var Handlebars = require('handlebars');
-var helpers = require('./support/helpers').handlebars;
-var AsyncHelpers = require('../');
+var helpers = require('../support/helpers').handlebars;
+var AsyncHelpers = require('../index');
 var asyncHelpers;
 var hbs;
 
@@ -13,21 +12,14 @@ var tmpl = [
   'input: {{> (partialName name="foo") }}',
   'input: {{name}}',
   'upper: {{upper name}}',
-  'upperAsync: {{upperAsync name}}',
   'lower: {{lower name}}',
   'spacer: {{spacer name}}',
   'spacer-delim: {{spacer name "-"}}',
   'lower(upper): {{lower (upper name)}}',
   'spacer(upper, lower): {{spacer (upper name) (lower "X")}}',
   'block: {{#block}}{{upper name}}{{/block}}',
-  // Lets mark it as "known bug" for now
-  // 'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
+  'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
   'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
-  'ifConditional3: {{#if foo}}{{upper name}}{{/if}}',
-  'ifConditional4: {{#if (false)}}{{upper name}}{{/if}}',
-  'ifConditional5: {{#if (equalSync "foo" foo)}}{{upper name}}{{/if}}',
-  'ifConditional6: {{#if false}}{{upper name}}{{/if}}',
-  'ifConditional7: {{#if null}}{{upper name}}{{/if}}',
   'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
   'sum: {{sum 1 2 3}}',
   'lookup(this "person"): {{lookup this "person"}}'
@@ -39,25 +31,25 @@ describe('handlebars', function() {
     hbs.registerPartial('custom', 'a partial');
 
     asyncHelpers = new AsyncHelpers();
-    asyncHelpers.set(hbs.helpers);
+    asyncHelpers.helper(hbs.helpers);
+    helpers.getPartial.async = true;
+    helpers.partialName.async = true;
 
     // add the helpers to asyncHelpers
-    asyncHelpers.set('if', hbs.helpers.if);
-    asyncHelpers.set('getPartial', helpers.getPartial);
-    asyncHelpers.set('equals', helpers.equals);
-    asyncHelpers.set('equalSync', helpers.equalSync);
-    asyncHelpers.set('partialName', helpers.partialName);
-    asyncHelpers.set('upper', helpers.upper);
-    asyncHelpers.set('upperAsync', helpers.upperAsync);
-    asyncHelpers.set('lower', helpers.lower);
-    asyncHelpers.set('spacer', helpers.spacer);
-    asyncHelpers.set('block', helpers.block);
-    asyncHelpers.set('useHash', helpers.useHash);
-    asyncHelpers.set('lookup', helpers.lookup);
-    asyncHelpers.set('sum', helpers.sum);
+    asyncHelpers.helper('if', hbs.helpers.if);
+    asyncHelpers.helper('getPartial', helpers.getPartial);
+    asyncHelpers.helper('equals', helpers.equals);
+    asyncHelpers.helper('partialName', helpers.partialName);
+    asyncHelpers.helper('upper', helpers.upper);
+    asyncHelpers.helper('lower', helpers.lower);
+    asyncHelpers.helper('spacer', helpers.spacer);
+    asyncHelpers.helper('block', helpers.block);
+    asyncHelpers.helper('useHash', helpers.useHash);
+    asyncHelpers.helper('lookup', helpers.lookup);
+    asyncHelpers.helper('sum', helpers.sum);
   });
 
-  it('should work in handlebars', function(done) {
+  it('should work in handlebars', function() {
     var invokePartial = hbs.VM.invokePartial;
     hbs.VM.invokePartial = function(name, context, options) {
       // do stuff
@@ -66,7 +58,7 @@ describe('handlebars', function() {
 
     // pull the helpers back out and wrap them
     // with async handling functionality
-    var wrappedHelpers = asyncHelpers.get();
+    var wrappedHelpers = asyncHelpers.wrapHelper();
 
     // register the helpers with Handlebars
     hbs.registerHelper(wrappedHelpers);
@@ -87,34 +79,23 @@ describe('handlebars', function() {
       bar: 'baz'
     });
 
-    asyncHelpers.resolve(rendered)
-      .then(function(content) {
-        // console.log('content', content);
-        assert.deepEqual(content, [
-          'input: custom',
-          'input: doowb',
-          'upper: DOOWB',
-          'upperAsync: DOOWB',
-          'lower: doowb',
-          'spacer: d o o w b',
-          'spacer-delim: d-o-o-w-b',
-          'lower(upper): doowb',
-          'spacer(upper, lower): DxOxOxWxB',
-          'block: DOOWB',
-          // Lets mark it as "known bug" for now
-          // 'ifConditional1: ',
-          'ifConditional2: DOOWB',
-          'ifConditional3: ',
-          'ifConditional4: ',
-          'ifConditional5: ',
-          'ifConditional6: ',
-          'ifConditional7: ',
-          'useHash: Brian Woodward',
-          'sum: 6',
-          'lookup(this "person"): Brian Woodward'
-        ].join('\n'));
-        done();
-      })
-      .catch(done);
+    return asyncHelpers.resolveIds(rendered).then((content) => {
+      assert.deepEqual(content, [
+        'input: custom',
+        'input: doowb',
+        'upper: DOOWB',
+        'lower: doowb',
+        'spacer: d o o w b',
+        'spacer-delim: d-o-o-w-b',
+        'lower(upper): doowb',
+        'spacer(upper, lower): DxOxOxWxB',
+        'block: DOOWB',
+        'ifConditional1: ',
+        'ifConditional2: DOOWB',
+        'useHash: Brian Woodward',
+        'sum: 6',
+        'lookup(this "person"): Brian Woodward'
+      ].join('\n'));
+    });
   });
 });
