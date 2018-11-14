@@ -14,19 +14,25 @@ class AsyncHelpers {
   constructor(options) {
     this.options = Object.assign({}, options);
     this.prefix = this.options.prefix || '{$ASYNCID$';
-    this.allHelpers = {};
+    this.helpers = {};
     this.counter = 0;
     this.ids = {};
   }
 
   get(name) {
     if (!name || typeof name !== 'string') {
-      return this.allHelpers;
+      return this.helpers;
     }
-    return this.allHelpers[name];
+    return this.helpers[name];
   }
 
-  helper(name, fn) {
+  set(name, fn) {
+    if (name && typeof name === 'object' && !Array.isArray(name)) {
+      Object.keys(name).forEach((key) => {
+        this.set(key, name[key]);
+      });
+      return this;
+    }
     if (!name || typeof name !== 'string') {
       throw new TypeError('expect `name` to be non empty string');
     }
@@ -43,27 +49,17 @@ class AsyncHelpers {
       const func = isAsync ? promisify(fn) : fn;
       const self = this;
 
-      this.allHelpers[name] = function wrapped(...args) {
+      this.helpers[name] = function wrapped(...args) {
         self.counter += 1;
         const id = `${self.prefix}${Date.now()}$${name}$${self.counter}$}`;
         self.ids[id] = { id, count: self.counter, context: this || {}, fn: func, name, args };
         return id;
       };
     } else {
-      this.allHelpers[name] = fn;
+      this.helpers[name] = fn;
     }
 
     return this;
-  }
-
-  helpers(obj) {
-    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-      Object.keys(obj).forEach((key) => {
-        this.helper(key, obj[key]);
-      });
-      return this;
-    }
-    throw new TypeError('expect `obj` to be object of helpers');
   }
 
   async resolve(str) {

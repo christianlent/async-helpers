@@ -11,10 +11,10 @@ describe('lodash', function() {
     var asyncHelpers = new AsyncHelpers();
 
     // add the helpers to asyncHelpers
-    asyncHelpers.helper('upper', helpers.upper);
-    asyncHelpers.helper('upperAsync', helpers.upperAsync);
-    asyncHelpers.helper('lower', helpers.lower);
-    asyncHelpers.helper('spacer', helpers.spacer);
+    asyncHelpers.set('upper', helpers.upper);
+    asyncHelpers.set('upperAsync', helpers.upperAsync);
+    asyncHelpers.set('lower', helpers.lower);
+    asyncHelpers.set('spacer', helpers.spacer);
 
     var wrapped = asyncHelpers.get();
 

@@ -39,22 +39,22 @@ describe('handlebars', function() {
     hbs.registerPartial('custom', 'a partial');
 
     asyncHelpers = new AsyncHelpers();
-    asyncHelpers.helpers(hbs.helpers);
+    asyncHelpers.set(hbs.helpers);
 
     // add the helpers to asyncHelpers
-    asyncHelpers.helper('if', hbs.helpers.if);
-    asyncHelpers.helper('getPartial', helpers.getPartial);
-    asyncHelpers.helper('equals', helpers.equals);
-    asyncHelpers.helper('equalSync', helpers.equalSync);
-    asyncHelpers.helper('partialName', helpers.partialName);
-    asyncHelpers.helper('upper', helpers.upper);
-    asyncHelpers.helper('upperAsync', helpers.upperAsync);
-    asyncHelpers.helper('lower', helpers.lower);
-    asyncHelpers.helper('spacer', helpers.spacer);
-    asyncHelpers.helper('block', helpers.block);
-    asyncHelpers.helper('useHash', helpers.useHash);
-    asyncHelpers.helper('lookup', helpers.lookup);
-    asyncHelpers.helper('sum', helpers.sum);
+    asyncHelpers.set('if', hbs.helpers.if);
+    asyncHelpers.set('getPartial', helpers.getPartial);
+    asyncHelpers.set('equals', helpers.equals);
+    asyncHelpers.set('equalSync', helpers.equalSync);
+    asyncHelpers.set('partialName', helpers.partialName);
+    asyncHelpers.set('upper', helpers.upper);
+    asyncHelpers.set('upperAsync', helpers.upperAsync);
+    asyncHelpers.set('lower', helpers.lower);
+    asyncHelpers.set('spacer', helpers.spacer);
+    asyncHelpers.set('block', helpers.block);
+    asyncHelpers.set('useHash', helpers.useHash);
+    asyncHelpers.set('lookup', helpers.lookup);
+    asyncHelpers.set('sum', helpers.sum);
   });
 
   it('should work in handlebars', function(done) {
