@@ -7,103 +7,139 @@
 
 'use strict';
 
-const escapeRegex = require('escape-string-regexp');
-const isAsyncFunction = require('is-async-function');
+const util = require('util');
+const isAsyncWithCb = require('is-async-function');
 
 class AsyncHelpers {
   constructor(options) {
     this.options = Object.assign({}, options);
-    this.prefix = this.options.prefix || '{$ASYNCID$';
-    this.helpers = {};
+    this.helperIds = {};
+    this.rawHelpers = {};
+    this.wrappedHelpers = {};
+    this.prefix = this.options.prefix || '@@@ASYNCID@';
     this.counter = 0;
-    this.ids = {};
   }
 
-  get(name) {
-    if (!name || typeof name !== 'string') {
-      return this.helpers;
-    }
-    return this.helpers[name];
-  }
-
-  set(name, fn) {
+  /**
+   * Define a helper `fn` with `name`.
+   * If `fn` is missing or not a function, returns the helper with `name`.
+   * If `name` is missing or not a string, returns all defined helpers.
+   * If `name` is object, calls itself for each key/value pair.
+   *
+   * @name  .helper
+   * @param {string|object|undefined} [name]
+   * @param {function} [fn]
+   * @returns {AsyncHelpers|function|object}
+   * @memberof AsyncHelpers
+   * @api public
+   */
+  helper(name, fn) {
     if (name && typeof name === 'object' && !Array.isArray(name)) {
       Object.keys(name).forEach((key) => {
-        this.set(key, name[key]);
+        this.helper(key, name[key]);
       });
       return this;
     }
-    if (!name || typeof name !== 'string') {
-      throw new TypeError('expect `name` to be non empty string');
+    if (!name) {
+      return this.rawHelpers;
+    }
+    if (name && !fn) {
+      return this.rawHelpers[name];
     }
     if (!fn || typeof fn !== 'function') {
-      throw new TypeError('expect `fn` to be function');
+      throw new TypeError('AsyncHelpers#helper: expect `fn` to be function');
     }
-
-    const type = Object.prototype.toString.call(fn);
-    const isAsync = isAsyncFunction(fn);
-
-    // If it is an regular async function or callback one
-    // we are doing some magic, otherwise skip wrapping the normal ones.
-    if (type.includes('Async') || isAsync) {
-      const func = isAsync ? promisify(fn) : fn;
-      const self = this;
-
-      this.helpers[name] = function wrapped(...args) {
-        self.counter += 1;
-        const id = `${self.prefix}${Date.now()}$${name}$${self.counter}$}`;
-        self.ids[id] = { id, count: self.counter, context: this || {}, fn: func, name, args };
-        return id;
-      };
-    } else {
-      this.helpers[name] = fn;
-    }
-
+    this.rawHelpers[name] = fn;
     return this;
   }
 
-  async resolve(str) {
+  wrapHelper(name, helper) {
+    if (name && typeof name === 'object' && !Array.isArray(name)) {
+      Object.keys(name).forEach((key) => {
+        this.wrapHelper(key, name[key]);
+      });
+      return this.wrappedHelpers;
+    }
+    // .wrapHelper() -> wrap all the raw ones
+    if (!name) {
+      return this.wrapHelper(this.rawHelpers);
+    }
+    helper = helper || this.rawHelpers[name] || this.wrappedHelpers[name];
+
+    if (helper && helper.wrapped) {
+      return helper;
+    }
+    if (!helper) {
+      throw new TypeError(`AsyncHelpers#wrapHelper: cannot find helper "${name}" name`);
+    }
     const self = this;
-    const promises = Object.keys(this.ids)
-      .map((id) => this.ids[id])
-      .map(async({ id, args, fn, context }) => {
 
-        const argz = args.map(function func(arg) {
-          const item = self.ids[arg];
-          return item
-            ? item.fn.call(item.context, ...item.args.map(func))
-            : arg;
-        });
+    // if we only use `wrapHelper` as both defining and wrapping
+    if (!this.rawHelpers[name]) {
+      this.rawHelpers[name] = helper;
+    }
+    const fn = isAsyncWithCb(helper) ? util.promisify(helper) : helper;
 
-        this.ids[id].value = await fn.call(context, ...(await Promise.all(argz)));
+    this.wrappedHelpers[name] = function wrappedHelper(...args) {
+      self.counter += 1;
+      const id = `${self.prefix}@${name}@${self.counter}@@@`;
+      self.helperIds[id] = { id, name, args, fn, ctx: this || {}, count: self.counter };
 
-        return this.ids[id];
+      return id;
+    };
+    this.wrappedHelpers[name].wrapped = true;
+
+    return this.wrappedHelpers[name];
+  }
+
+  async resolveIds(str) {
+    const promises = Object.keys(this.helperIds)
+      .map(async(id) => {
+        return { id, value: await this.resolveId(id)};
       });
 
-    return Promise.all(promises).then((res) =>
-      res.reduce(
+    return Promise.all(promises).then((res) => {
+
+      const result = res.reduce(
         (acc, { id, value }) => {
           if (acc === id) return value;
-          return acc.replace(new RegExp(escapeRegex(id), 'g'), value);
+          return acc.replace(new RegExp(id, 'g'), value);
         },
         str,
-      ),
-    );
-  }
-}
+      );
 
-function promisify(fn) {
-  return function func(...args) {
-    return new Promise((resolve, reject) => {
-      fn.call(this, ...args, (err, ...argz) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(...argz);
-        }
-      });
+      return result;
     });
-  };
+  }
+
+  async resolveId(key) {
+    if (!this.helperIds[key]) {
+      throw new Error(`AsyncHelpers#resolveId: cannot resolve helper with "${key}" id`);
+    }
+    const { id, name, fn, args, ctx, value } = this.helperIds[key];
+
+    if ('value' in this.helperIds[key]) {
+      return value;
+    }
+
+    const self = this;
+    const argz = args.map(function func(arg) {
+      const item = self.helperIds[arg];
+      return item
+        ? item.fn.apply(item.ctx, item.args.map(func))
+        : arg;
+    });
+
+    try {
+      this.helperIds[key].value = await fn.apply(ctx, await Promise.all(argz));
+    } catch (err) {
+      const msg = `AsyncHelpers#resolveId: helper with name "${name}" and id "${id}" failed`;
+
+      throw new Error(`${msg}: ${err.message}`);
+    }
+
+    return this.helperIds[key].value;
+  }
 }
 
 module.exports = AsyncHelpers;
