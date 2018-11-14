@@ -40,12 +40,11 @@ class AsyncHelpers {
     // If it is an regular async function or callback one
     // we are doing some magic, otherwise skip wrapping the normal ones.
     if (type.includes('Async') || isAsync) {
-      this.counter += 1;
-      const id = `{$ASYNCID$${Date.now()}$${name}$${this.counter}`;
-
       const func = isAsync ? promisify(fn) : fn;
 
       this.allHelpers[name] = (...args) => {
+        this.counter += 1;
+        const id = `{$ASYNCID$${Date.now()}$${name}$${this.counter}$}`;
         this.ids[id] = { id, count: this.counter, name, args, fn: func };
         return id;
       };
@@ -67,10 +66,21 @@ class AsyncHelpers {
   }
 
   async resolve(str) {
+    const self = this;
     const promises = Object.keys(this.ids)
       .map((id) => this.ids[id])
       .map(async({ id, args, fn }) => {
-        this.ids[id].value = await fn(...args);
+
+        const argz = args.map(function func(arg) {
+          const item = self.ids[arg];
+          if (item) {
+            const itemArgs = item.args.map(func);
+            return item.fn.call(fn, ...itemArgs);
+          }
+          return arg;
+        });
+
+        this.ids[id].value = await fn.call(fn, ...(await Promise.all(argz)));
 
         return this.ids[id];
       });
@@ -88,7 +98,7 @@ class AsyncHelpers {
 function promisify(fn) {
   return (...args) =>
     new Promise((resolve, reject) => {
-      fn(...args, (err, ...argz) => {
+      fn.call(fn, ...args, (err, ...argz) => {
         if (err) {
           reject(err);
         } else {

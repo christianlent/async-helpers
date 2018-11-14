@@ -5,6 +5,7 @@ var helpers = {
     upper: function(str) {
       return str.toUpperCase();
     },
+    upperAsync: async(str) => str && str.toUpperCase(),
     getPartial: function(str, options, cb) {
       var args = [].slice.call(arguments);
       cb = args.pop();
@@ -14,7 +15,7 @@ var helpers = {
       cb(null, str.toLowerCase());
     },
     partialName: function partialName(options, cb) {
-      cb(null, this.customName || options.hash.name)
+      cb(null, this.customName || options.hash.name);
     },
     is: function(val, options, cb) {
       cb(null, val === true);
@@ -54,6 +55,7 @@ var helpers = {
     }
   },
   lodash: {
+    upperAsync: async(str) => str && str.toUpperCase(),
     upper: function(str) {
       return str.toUpperCase();
     },
@@ -69,13 +71,5 @@ var helpers = {
     }
   }
 };
-
-// async helpers must have an `async` property
-helpers.handlebars.is.async = true;
-helpers.handlebars.equals.async = true;
-helpers.handlebars.lower.async = true;
-helpers.handlebars.spacer.async = true;
-helpers.lodash.lower.async = true;
-helpers.lodash.spacer.async = true;
 
 module.exports = helpers;

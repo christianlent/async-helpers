@@ -13,17 +13,18 @@ var tmpl = [
   'input: {{> (partialName name="foo") }}',
   'input: {{name}}',
   'upper: {{upper name}}',
+  'upperAsync: {{upperAsync name}}',
   'lower: {{lower name}}',
   'spacer: {{spacer name}}',
   'spacer-delim: {{spacer name "-"}}',
-  'lower(upper): {{lower (upper name)}}',
-  'spacer(upper, lower): {{spacer (upper name) (lower "X")}}',
-  'block: {{#block}}{{upper name}}{{/block}}',
-  'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
-  'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
-  'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
-  'sum: {{sum 1 2 3}}',
-  'lookup(this "person"): {{lookup this "person"}}'
+  'lower(upper): {{lower (upper name)}}'
+  // 'spacer(upper, lower): {{spacer (upper name) (lower "X")}}',
+  // 'block: {{#block}}{{upper name}}{{/block}}',
+  // 'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
+  // 'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
+  // 'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
+  // 'sum: {{sum 1 2 3}}',
+  // 'lookup(this "person"): {{lookup this "person"}}'
 ].join('\n');
 
 describe('handlebars', function() {
@@ -31,23 +32,22 @@ describe('handlebars', function() {
     hbs = Handlebars.create();
     hbs.registerPartial('custom', 'a partial');
 
-    asyncHelpers = new AsyncHelpers();
-    asyncHelpers.set(hbs.helpers);
-    helpers.getPartial.async = true;
-    helpers.partialName.async = true;
+    asyncHelpers = AsyncHelpers();
+    asyncHelpers.helpers(hbs.helpers);
 
     // add the helpers to asyncHelpers
-    asyncHelpers.set('if', hbs.helpers.if);
-    asyncHelpers.set('getPartial', helpers.getPartial);
-    asyncHelpers.set('equals', helpers.equals);
-    asyncHelpers.set('partialName', helpers.partialName);
-    asyncHelpers.set('upper', helpers.upper);
-    asyncHelpers.set('lower', helpers.lower);
-    asyncHelpers.set('spacer', helpers.spacer);
-    asyncHelpers.set('block', helpers.block);
-    asyncHelpers.set('useHash', helpers.useHash);
-    asyncHelpers.set('lookup', helpers.lookup);
-    asyncHelpers.set('sum', helpers.sum);
+    asyncHelpers.helper('if', hbs.helpers.if);
+    asyncHelpers.helper('getPartial', helpers.getPartial);
+    asyncHelpers.helper('equals', helpers.equals);
+    asyncHelpers.helper('partialName', helpers.partialName);
+    asyncHelpers.helper('upper', helpers.upper);
+    asyncHelpers.helper('upperAsync', helpers.upperAsync);
+    asyncHelpers.helper('lower', helpers.lower);
+    asyncHelpers.helper('spacer', helpers.spacer);
+    asyncHelpers.helper('block', helpers.block);
+    asyncHelpers.helper('useHash', helpers.useHash);
+    asyncHelpers.helper('lookup', helpers.lookup);
+    asyncHelpers.helper('sum', helpers.sum);
   });
 
   it('should work in handlebars', function(done) {
@@ -59,7 +59,7 @@ describe('handlebars', function() {
 
     // pull the helpers back out and wrap them
     // with async handling functionality
-    var wrappedHelpers = asyncHelpers.get({wrap: true});
+    var wrappedHelpers = asyncHelpers.get();
 
     // register the helpers with Handlebars
     hbs.registerHelper(wrappedHelpers);
@@ -72,29 +72,38 @@ describe('handlebars', function() {
     var rendered = fn({
       name: 'doowb',
       customName: 'custom',
-      person: {first: 'Brian', last: 'Woodward', toString: function() { return this.first + ' ' + this.last; }},
+      person: {
+        first: 'Brian',
+        last: 'Woodward',
+        toString: function() { return this.first + ' ' + this.last; }
+      },
       bar: 'baz'
     });
 
-    asyncHelpers.resolveIds(rendered, function(err, content) {
-      if (err) return done(err);
-      assert.deepEqual(content, [
-        'input: custom',
-        'input: doowb',
-        'upper: DOOWB',
-        'lower: doowb',
-        'spacer: d o o w b',
-        'spacer-delim: d-o-o-w-b',
-        'lower(upper): doowb',
-        'spacer(upper, lower): DxOxOxWxB',
-        'block: DOOWB',
-        'ifConditional1: ',
-        'ifConditional2: DOOWB',
-        'useHash: Brian Woodward',
-        'sum: 6',
-        'lookup(this "person"): Brian Woodward'
-      ].join('\n'));
-      done();
-    });
+    console.log(rendered);
+
+    asyncHelpers.resolve(rendered)
+      .then(function(content) {
+        console.log('content', content);
+        assert.deepEqual(content, [
+          'input: custom',
+          'input: doowb',
+          'upper: DOOWB',
+          'upperAsync: DOOWB',
+          'lower: doowb',
+          'spacer: d o o w b',
+          'spacer-delim: d-o-o-w-b',
+          'lower(upper): doowb',
+          'spacer(upper, lower): DxOxOxWxB',
+          'block: DOOWB',
+          'ifConditional1: ',
+          'ifConditional2: DOOWB',
+          'useHash: Brian Woodward',
+          'sum: 6',
+          'lookup(this "person"): Brian Woodward'
+        ].join('\n'));
+        done();
+      })
+      .catch(done);
   });
 });
