@@ -20,6 +20,7 @@ var helpers = {
     is: function(val, options, cb) {
       cb(null, val === true);
     },
+    equalSync: (a, b) => a == b,
     equals: function(a, b, options, cb) {
       console.log('qq', arguments, a == b);
       cb(null, a == b);

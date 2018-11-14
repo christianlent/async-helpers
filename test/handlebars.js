@@ -23,8 +23,10 @@ var tmpl = [
   'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
   'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
   'ifConditional3: {{#if foo}}{{upper name}}{{/if}}',
-  'ifConditional4: {{#if false}}{{upper name}}{{/if}}',
-  'ifConditional5: {{#if null}}{{upper name}}{{/if}}',
+  'ifConditional4: {{#if (false)}}{{upper name}}{{/if}}',
+  'ifConditional5: {{#if (equalSync "foo" foo)}}{{upper name}}{{/if}}',
+  'ifConditional6: {{#if false}}{{upper name}}{{/if}}',
+  'ifConditional7: {{#if null}}{{upper name}}{{/if}}',
   'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
   'sum: {{sum 1 2 3}}',
   'lookup(this "person"): {{lookup this "person"}}'
@@ -42,6 +44,7 @@ describe('handlebars', function() {
     asyncHelpers.helper('if', hbs.helpers.if);
     asyncHelpers.helper('getPartial', helpers.getPartial);
     asyncHelpers.helper('equals', helpers.equals);
+    asyncHelpers.helper('equalSync', helpers.equalSync);
     asyncHelpers.helper('partialName', helpers.partialName);
     asyncHelpers.helper('upper', helpers.upper);
     asyncHelpers.helper('upperAsync', helpers.upperAsync);
@@ -83,7 +86,6 @@ describe('handlebars', function() {
       bar: 'baz'
     });
 
-    console.log(rendered);
     asyncHelpers.resolve(rendered)
       .then(function(content) {
         // console.log('content', content);
@@ -103,6 +105,8 @@ describe('handlebars', function() {
           'ifConditional3: ',
           'ifConditional4: ',
           'ifConditional5: ',
+          'ifConditional6: ',
+          'ifConditional7: ',
           'useHash: Brian Woodward',
           'sum: 6',
           'lookup(this "person"): Brian Woodward'
