@@ -17,14 +17,15 @@ var tmpl = [
   'lower: {{lower name}}',
   'spacer: {{spacer name}}',
   'spacer-delim: {{spacer name "-"}}',
-  'lower(upper): {{lower (upper name)}}'
-  // 'spacer(upper, lower): {{spacer (upper name) (lower "X")}}',
-  // 'block: {{#block}}{{upper name}}{{/block}}',
-  // 'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
-  // 'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
-  // 'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
-  // 'sum: {{sum 1 2 3}}',
-  // 'lookup(this "person"): {{lookup this "person"}}'
+  'lower(upper): {{lower (upper name)}}',
+  'spacer(upper, lower): {{spacer (upper name) (lower "X")}}',
+  'block: {{#block}}{{upper name}}{{/block}}',
+  'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
+  'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
+  'ifConditional3: {{#if foo}}{{upper name}}{{/if}}',
+  'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
+  'sum: {{sum 1 2 3}}',
+  'lookup(this "person"): {{lookup this "person"}}'
 ].join('\n');
 
 describe('handlebars', function() {
@@ -80,11 +81,9 @@ describe('handlebars', function() {
       bar: 'baz'
     });
 
-    console.log(rendered);
-
     asyncHelpers.resolve(rendered)
       .then(function(content) {
-        console.log('content', content);
+        // console.log('content', content);
         assert.deepEqual(content, [
           'input: custom',
           'input: doowb',
@@ -98,6 +97,7 @@ describe('handlebars', function() {
           'block: DOOWB',
           'ifConditional1: ',
           'ifConditional2: DOOWB',
+          'ifConditional3: ',
           'useHash: Brian Woodward',
           'sum: 6',
           'lookup(this "person"): Brian Woodward'

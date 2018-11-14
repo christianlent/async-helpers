@@ -41,11 +41,12 @@ class AsyncHelpers {
     // we are doing some magic, otherwise skip wrapping the normal ones.
     if (type.includes('Async') || isAsync) {
       const func = isAsync ? promisify(fn) : fn;
+      const self = this;
 
-      this.allHelpers[name] = (...args) => {
-        this.counter += 1;
-        const id = `{$ASYNCID$${Date.now()}$${name}$${this.counter}$}`;
-        this.ids[id] = { id, count: this.counter, name, args, fn: func };
+      this.allHelpers[name] = function wrapped(...args) {
+        self.counter += 1;
+        const id = `{$ASYNCID$${Date.now()}$${name}$${self.counter}$}`;
+        self.ids[id] = { id, count: self.counter, context: this || {}, fn: func, name, args };
         return id;
       };
     } else {
@@ -69,18 +70,16 @@ class AsyncHelpers {
     const self = this;
     const promises = Object.keys(this.ids)
       .map((id) => this.ids[id])
-      .map(async({ id, args, fn }) => {
+      .map(async({ id, args, fn, context }) => {
 
         const argz = args.map(function func(arg) {
           const item = self.ids[arg];
-          if (item) {
-            const itemArgs = item.args.map(func);
-            return item.fn.call(fn, ...itemArgs);
-          }
-          return arg;
+          return item
+            ? item.fn.call(item.context, ...item.args.map(func))
+            : arg;
         });
 
-        this.ids[id].value = await fn.call(fn, ...(await Promise.all(argz)));
+        this.ids[id].value = await fn.call(context, ...(await Promise.all(argz)));
 
         return this.ids[id];
       });
@@ -96,9 +95,9 @@ class AsyncHelpers {
 }
 
 function promisify(fn) {
-  return (...args) =>
-    new Promise((resolve, reject) => {
-      fn.call(fn, ...args, (err, ...argz) => {
+  return function func(...args) {
+    return new Promise((resolve, reject) => {
+      fn.call(this, ...args, (err, ...argz) => {
         if (err) {
           reject(err);
         } else {
@@ -106,6 +105,7 @@ function promisify(fn) {
         }
       });
     });
+  };
 }
 
 module.exports = (options) => new AsyncHelpers(options);

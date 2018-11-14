@@ -21,6 +21,7 @@ var helpers = {
       cb(null, val === true);
     },
     equals: function(a, b, options, cb) {
+      console.log('qq', arguments, a == b);
       cb(null, a == b);
     },
     spacer: function(str, delim, options, cb) {
