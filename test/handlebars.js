@@ -23,6 +23,8 @@ var tmpl = [
   'ifConditional1: {{#if (equals "foo" foo)}}{{upper name}}{{/if}}',
   'ifConditional2: {{#if (equals "baz" bar)}}{{upper name}}{{/if}}',
   'ifConditional3: {{#if foo}}{{upper name}}{{/if}}',
+  'ifConditional4: {{#if false}}{{upper name}}{{/if}}',
+  'ifConditional5: {{#if null}}{{upper name}}{{/if}}',
   'useHash: {{#useHash me=(lookup this "person")}}{{me.first}} {{me.last}}{{/useHash}}',
   'sum: {{sum 1 2 3}}',
   'lookup(this "person"): {{lookup this "person"}}'
@@ -81,6 +83,7 @@ describe('handlebars', function() {
       bar: 'baz'
     });
 
+    console.log(rendered);
     asyncHelpers.resolve(rendered)
       .then(function(content) {
         // console.log('content', content);
@@ -98,6 +101,8 @@ describe('handlebars', function() {
           'ifConditional1: ',
           'ifConditional2: DOOWB',
           'ifConditional3: ',
+          'ifConditional4: ',
+          'ifConditional5: ',
           'useHash: Brian Woodward',
           'sum: 6',
           'lookup(this "person"): Brian Woodward'
