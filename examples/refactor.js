@@ -1,6 +1,6 @@
 'use strict';
 
-const AsyncHelpers = require('./index');
+const AsyncHelpers = require('../index');
 
 async function main() {
   const asyncHelpers = new AsyncHelpers();
@@ -40,6 +40,10 @@ async function main() {
   const str = `foo ${lowerCb('KKK222')} bar ${lowerAsync('QYX')}`;
   console.log('resolveIds:', await asyncHelpers.resolveIds(str));
   // => foo kkk222 bar qyx
+
+  asyncHelpers.wrapHelper('sumAsync', (a, b) => Promise.resolve(a + b));
+  const sumAsync = asyncHelpers.wrapHelper('sumAsync');
+  console.log('sumAsync res:', await asyncHelpers.resolveIds(sumAsync(2, 4)));
 }
 
 main();
