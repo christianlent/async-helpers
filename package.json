@@ -25,8 +25,8 @@
     "test": "mocha"
   },
   "dependencies": {
-    "co": "^4.6.0",
-    "kind-of": "^6.0.0"
+    "escape-string-regexp": "^1.0.5",
+    "is-async-function": "^1.2.3"
   },
   "devDependencies": {
     "async": "^2.5.0",
