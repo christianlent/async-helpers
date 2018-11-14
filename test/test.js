@@ -10,8 +10,24 @@ describe('async-helpers', function() {
     AsyncHelpers.globalCounter = 0;
     asyncHelpers = new AsyncHelpers();
   });
-
   describe('set', function() {
+
+    it('should throw error if name not a string', () => {
+      assert.throws(() => asyncHelpers.set(123), TypeError);
+      assert.throws(() => asyncHelpers.set(123), /expect `name` to be non empty string/);
+    });
+
+    it('should throw error if fn not a function', () => {
+      assert.throws(() => asyncHelpers.set('abc', 123), TypeError);
+      assert.throws(() => asyncHelpers.set('abc', 123), /expect `fn` to be function/);
+    });
+
+    it('should throw error if object value is not a function', () => {
+      assert.throws(() => asyncHelpers.set({ abc: 123 }), TypeError);
+      assert.throws(() => asyncHelpers.set({ abc: 123 }), /expect `fn` to be function/);
+      assert.ok(asyncHelpers.set({ abc: () => {} }));
+    });
+
     it('should set a sync helper', function() {
       var upper = function(str) {
         return str.toUpperCase();
@@ -140,80 +156,89 @@ describe('async-helpers', function() {
     });
   });
 
-  // describe('errors', function() {
-  //   it('should handle errors in sync helpers', function() {
-  //     var asyncHelpers3 = new AsyncHelpers();
-  //     var upper = function(str) {
-  //       throw new Error('UPPER Error');
-  //     };
-  //     asyncHelpers3.set('upper', upper);
-  //     var helper = asyncHelpers3.get('upper', {wrap: true});
-  //     var id = helper('doowb');
-  //     return co(asyncHelpers3.resolveId(id))
-  //       .then(function(val) {
-  //         return Promise.reject(new Error('expected an error'));
-  //       })
-  //       .catch(function(err) {
-  //         assert(err.hasOwnProperty('helper'), 'Expected a `helper` property on `err`');
-  //       });
-  //   });
+  describe('errors', function() {
+    // Not make much sense, it should be handled by the template engine
+    // We just care and handle only async helpers here.
+    // The sync helpers are processed even on engine rendering,
+    // even before the `.resolve()` calling.
+    it.skip('should handle errors in sync helpers', function() {
+      var asyncHelpers3 = new AsyncHelpers();
+      var upper = function(str) {
+        throw new Error('yeah UPPER Error');
+      };
+      asyncHelpers3.set('upper', upper);
 
-  //   it('should handle errors in async helpers', function() {
-  //     var asyncHelpers3 = new AsyncHelpers();
-  //     var upper = function(str, next) {
-  //       throw new Error('UPPER Error');
-  //     };
-  //     upper.async = true;
-  //     asyncHelpers3.set('upper', upper);
-  //     var helper = asyncHelpers3.get('upper', {wrap: true});
-  //     var id = helper('doowb');
-  //     return co(asyncHelpers3.resolveId(id))
-  //       .then(function(val) {
-  //         return Promise.reject(new Error('expected an error'));
-  //       })
-  //       .catch(function(err) {
-  //         assert(err.hasOwnProperty('helper'), 'Expected a `helper` property on `err`');
-  //       });
-  //   });
+      var helper = asyncHelpers3.get('upper');
+      var id = helper('doowb');
 
-  //   it('should handle returned errors in async helpers', function() {
-  //     var asyncHelpers3 = new AsyncHelpers();
-  //     var upper = function(str, next) {
-  //       next(new Error('UPPER Error'));
-  //     };
-  //     upper.async = true;
-  //     asyncHelpers3.set('upper', upper);
-  //     var helper = asyncHelpers3.get('upper', {wrap: true});
-  //     var id = helper('doowb');
-  //     return co(asyncHelpers3.resolveId(id))
-  //       .then(function(val) {
-  //         throw new Error('expected an error');
-  //       })
-  //       .catch(function(err) {
-  //         assert(err.hasOwnProperty('helper'), 'Expected a `helper` property on `err`');
-  //       });
-  //   });
+      return asyncHelpers3.resolve(id)
+        .then(function(val) {
+          return Promise.reject(new Error('expected an error'));
+        })
+        .catch(function(err) {
+          assert.ok(/yeah UPPER Error/.test(err.message), 'expect to throw from sync helper');
+        });
+    });
 
-  //   it('should handle errors with arguments with circular references', function() {
-  //     var asyncHelpers3 = new AsyncHelpers();
-  //     var upper = function(str, next) {
-  //       throw new Error('UPPER Error');
-  //     };
-  //     upper.async = true;
-  //     asyncHelpers3.set('upper', upper);
-  //     var helper = asyncHelpers3.get('upper', {wrap: true});
-  //     var obj = {username: 'doowb'};
-  //     obj.profile = obj;
-  //     var id = helper(obj);
-  //     return co(asyncHelpers3.resolveId(id))
-  //       .then(function(val) {
-  //         throw new Error('Expected an error');
-  //       })
-  //       .catch(function(err) {
-  //         assert(err.hasOwnProperty('helper'), 'Expected a `helper` property on `err`');
-  //       });
-  //   });
-  // });
+    it('should handle errors in async helpers', function() {
+      var asyncHelpers3 = new AsyncHelpers();
+      var upper = function(str, next) {
+        throw new Error('UPPER Error');
+      };
+      upper.async = true;
+      asyncHelpers3.set('upper', upper);
+      var helper = asyncHelpers3.get('upper');
+      var id = helper('doowb');
+
+      return asyncHelpers3.resolve(id)
+        .then(function(val) {
+          return Promise.reject(new Error('expected an error'));
+        })
+        .catch(function(err) {
+          assert.ok(/UPPER Error/.test(err.message), 'expect to throw from async helper');
+        });
+    });
+
+    it('should handle returned errors in async helpers', function() {
+      var asyncHelpers3 = new AsyncHelpers();
+      var upper = function(str, next) {
+        next(new Error('async returned UPPER Error'));
+      };
+      upper.async = true;
+      asyncHelpers3.set('upper', upper);
+      var helper = asyncHelpers3.get('upper');
+      var id = helper('doowb');
+
+      return asyncHelpers3.resolve(id)
+        .then(function(val) {
+          return Promise.reject(new Error('expected an error'));
+        })
+        .catch(function(err) {
+          assert.ok(/async returned UPPER Error/.test(err.message), 'expect to throw from async helper');
+        });
+    });
+
+    it('should handle errors with arguments with circular references', function() {
+      var asyncHelpers3 = new AsyncHelpers();
+      var upper = function(str, next) {
+        throw new Error('circular UPPER Error');
+      };
+
+      asyncHelpers3.set('upper', upper);
+      var helper = asyncHelpers3.get('upper');
+      var obj = {username: 'doowb'};
+      obj.profile = obj;
+      var id = helper(obj);
+
+      return asyncHelpers3.resolve(id)
+        .then(function(val) {
+          return Promise.reject(new Error('expected an error'));
+        })
+        .catch(function(err) {
+          assert.ok(/circular UPPER Error/.test(err.message), 'expect to throw from async helper');
+        });
+    });
+  });
 
   // describe('wrapHelper', function() {
   //   it('should return the helper when given the helper name', function() {
