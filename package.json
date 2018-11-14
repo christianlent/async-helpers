@@ -22,7 +22,8 @@
     "node": ">=4.0.0"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "lint": "eslint '**/*.js' --cache --fix --format codeframe"
   },
   "dependencies": {
     "escape-string-regexp": "^1.0.5",
@@ -30,14 +31,10 @@
   },
   "devDependencies": {
     "async": "^2.5.0",
-    "gulp": "^3.9.1",
-    "gulp-eslint": "^4.0.0",
-    "gulp-format-md": "^1.0.0",
-    "gulp-istanbul": "^1.1.2",
-    "gulp-mocha": "^3.0.1",
+    "eslint": "^5.9.0",
     "handlebars": "^4.0.11",
     "lodash": "^4.17.4",
-    "mocha": "^3.5.2"
+    "mocha": "^5.2.0"
   },
   "keywords": [
     "async",
