@@ -8,7 +8,7 @@ var AsyncHelpers = require('../');
 describe('lodash', function() {
   it('should work in lodash', function(done) {
 
-    var asyncHelpers = AsyncHelpers();
+    var asyncHelpers = new AsyncHelpers();
 
     // add the helpers to asyncHelpers
     asyncHelpers.helper('upper', helpers.upper);

@@ -45,7 +45,7 @@ class AsyncHelpers {
 
       this.allHelpers[name] = function wrapped(...args) {
         self.counter += 1;
-        const id = `{$ASYNCID$${Date.now()}$${name}$${self.counter}$}`;
+        const id = `${self.prefix}${Date.now()}$${name}$${self.counter}$}`;
         self.ids[id] = { id, count: self.counter, context: this || {}, fn: func, name, args };
         return id;
       };
@@ -86,8 +86,10 @@ class AsyncHelpers {
 
     return Promise.all(promises).then((res) =>
       res.reduce(
-        (acc, { id, value }) =>
-          acc.replace(new RegExp(escapeRegex(id), 'g'), value),
+        (acc, { id, value }) => {
+          if (acc === id) return value;
+          return acc.replace(new RegExp(escapeRegex(id), 'g'), value);
+        },
         str,
       ),
     );
@@ -108,4 +110,4 @@ function promisify(fn) {
   };
 }
 
-module.exports = (options) => new AsyncHelpers(options);
+module.exports = AsyncHelpers;
