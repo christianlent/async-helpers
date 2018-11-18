@@ -123,18 +123,23 @@ class AsyncHelpers {
     }
 
     const self = this;
-    const argz = args.map(function func(arg) {
+    const argz = args.map(async function func(arg) {
       const item = self.helperIds[arg];
       if (item) {
         return self.resolveId(item.id);
       }
-      // if (isObject(arg) && isObject(arg.hash)) {
-      //   Object.keys(arg.hash).forEach(async(k) => {
-      //     arg.hash[k] = arg.hash[k] && arg.hash[k].includes(self.prefix)
-      //       ? await func(arg.hash[k])
-      //       : arg.hash[k];
-      //   });
-      // }
+      if (isObject(arg) && isObject(arg.hash)) {
+        for (const key of Object.keys(arg.hash)) {
+          arg.hash[key] = await func(arg.hash[key]);
+        }
+      }
+      if (Array.isArray(arg)) {
+        const res = [];
+        for (const ele of arg) {
+          res.push(await func(ele));
+        }
+        return res;
+      }
       return arg;
     });
 
