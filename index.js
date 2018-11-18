@@ -92,6 +92,11 @@ class AsyncHelpers {
     return this.wrappedHelpers[name];
   }
 
+  hasAsyncId(val) {
+    const re = new RegExp(`${this.prefix}@.+@\\d+@@@`, 'g');
+    return val && typeof val === 'string' && re.test(val);
+  }
+
   async resolveIds(str) {
     const promises = Object.keys(this.helperIds)
       .map(async(id) => {
@@ -99,7 +104,6 @@ class AsyncHelpers {
       });
 
     return Promise.all(promises).then((res) => {
-
       const result = res.reduce(
         (acc, { id, value }) => {
           if (acc === id) return value;
@@ -122,21 +126,23 @@ class AsyncHelpers {
       return value;
     }
 
-    const self = this;
-    const argz = args.map(async function func(arg) {
-      const item = self.helperIds[arg];
+    const argz = args.map(async(arg) => {
+      const item = this.helperIds[arg];
+
       if (item) {
-        return self.resolveId(item.id);
+        return this.resolveId(item.id);
       }
+
       if (isObject(arg) && isObject(arg.hash)) {
-        for (const key of Object.keys(arg.hash)) {
-          arg.hash[key] = await func(arg.hash[key]);
+        for (const [key, val] of Object.entries(arg.hash)) {
+          arg.hash[key] = this.hasAsyncId(val) ? await this.resolveId(val) : val;
         }
+        return arg;
       }
       if (Array.isArray(arg)) {
         const res = [];
         for (const ele of arg) {
-          res.push(await func(ele));
+          res.push(this.hasAsyncId(ele) ? await this.resolveId(val) : ele);
         }
         return res;
       }
@@ -152,7 +158,7 @@ class AsyncHelpers {
     }
 
     const val = this.helperIds[id].value;
-    if (typeof val === 'string' && val.includes(this.prefix)) {
+    if (this.hasAsyncId(val)) {
       return this.resolveIds(val);
     }
 
