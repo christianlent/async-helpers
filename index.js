@@ -43,6 +43,9 @@ class AsyncHelpers {
     if (!name) {
       return this.rawHelpers;
     }
+    if (typeof name !== 'string') {
+      throw new TypeError('AsyncHelpers#helper: expect `name` to be non empty string');
+    }
     if (name && !fn) {
       return this.rawHelpers[name];
     }

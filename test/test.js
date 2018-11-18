@@ -1,8 +1,7 @@
 'use strict';
 
-require('mocha');
 var assert = require('assert');
-var AsyncHelpers = require('../');
+var AsyncHelpers = require('../index');
 var asyncHelpers = null;
 
 describe('async-helpers', function() {
@@ -13,93 +12,118 @@ describe('async-helpers', function() {
   describe('set', function() {
 
     it('should throw error if name not a string', () => {
-      assert.throws(() => asyncHelpers.set(123), TypeError);
-      assert.throws(() => asyncHelpers.set(123), /expect `name` to be non empty string/);
+      assert.throws(() => asyncHelpers.helper(123), TypeError);
+      assert.throws(() => asyncHelpers.helper(123), /expect `name` to be non empty string/);
     });
 
     it('should throw error if fn not a function', () => {
-      assert.throws(() => asyncHelpers.set('abc', 123), TypeError);
-      assert.throws(() => asyncHelpers.set('abc', 123), /expect `fn` to be function/);
+      assert.throws(() => asyncHelpers.helper('abc', 123), TypeError);
+      assert.throws(() => asyncHelpers.helper('abc', 123), /expect `fn` to be function/);
     });
 
     it('should throw error if object value is not a function', () => {
-      assert.throws(() => asyncHelpers.set({ abc: 123 }), TypeError);
-      assert.throws(() => asyncHelpers.set({ abc: 123 }), /expect `fn` to be function/);
-      assert.ok(asyncHelpers.set({ abc: () => {} }));
+      assert.throws(() => asyncHelpers.helper({ abc: 123 }), TypeError);
+      assert.throws(() => asyncHelpers.helper({ abc: 123 }), /expect `fn` to be function/);
+      assert.ok(asyncHelpers.helper({ abc: () => {} }));
     });
 
     it('should set a sync helper', function() {
       var upper = function(str) {
         return str.toUpperCase();
       };
-      asyncHelpers.set('upper', upper);
-      assert(typeof asyncHelpers.helpers.upper !== 'undefined', 'upper should be defined on `helpers`');
-      assert.deepEqual(asyncHelpers.helpers.upper.toString(), upper.toString());
+      asyncHelpers.helper('upper', upper);
+      assert(typeof asyncHelpers.rawHelpers.upper !== 'undefined', 'upper should be defined on `rawHelpers`');
+      assert.deepEqual(asyncHelpers.rawHelpers.upper.toString(), upper.toString());
     });
 
     it('should set an async helper', function() {
-      var upper = function(str, cb) {
+      asyncHelpers.helper('upper', (str, cb) => {
         cb(null, str.toUpperCase());
-      };
-      asyncHelpers.set('upper', upper);
-      assert(typeof asyncHelpers.helpers.upper !== 'undefined', 'upper should be defined on `helpers`');
-      assert(asyncHelpers.helpers.upper);
+      });
+
+      assert(typeof asyncHelpers.rawHelpers.upper !== 'undefined', 'upper should be defined on `rawHelpers`');
+      assert(asyncHelpers.rawHelpers.upper);
     });
   });
 
   describe('get', function() {
     it('should get the helper as is', function() {
-      var upper = function(str) {
-        return str.toUpperCase();
-      };
-      asyncHelpers.set('upper', upper);
-      assert.deepEqual(asyncHelpers.get('upper').toString(), upper.toString());
+      const upper = (str) => str && str.toUpperCase();
+      asyncHelpers.helper('upper', upper);
+
+      assert.deepEqual(asyncHelpers.helper('upper').toString(), upper.toString());
+      assert.deepEqual(asyncHelpers.rawHelpers.upper.toString(), upper.toString());
     });
 
-    it.skip('should get all helpers', function() {
-      var upper = function(str) {
-        return str.toUpperCase();
-      };
-      var lower = function(str) {
-        return str.toLowerCase();
-      };
-      asyncHelpers.set('upper', upper);
-      asyncHelpers.set('lower', lower);
-      assert.deepEqual(Object.keys(asyncHelpers.get()), ['upper', 'lower']);
+    it('should get all "raw" (non wrapped) helpers', function() {
+      asyncHelpers.helper('upper', (str) => str && str.toUpperCase());
+      asyncHelpers.helper('lower', (str) => str && str.toLowerCase());
+
+      assert.deepEqual(Object.keys(asyncHelpers.helper()), ['upper', 'lower']);
+      assert.deepEqual(Object.keys(asyncHelpers.rawHelpers), ['upper', 'lower']);
+    });
+
+    it('should get all wrapped helpers', function() {
+      asyncHelpers.helper('upper', (str) => str && str.toUpperCase());
+      asyncHelpers.helper('lower', (str) => str && str.toLowerCase());
+
+      assert.deepEqual(Object.keys(asyncHelpers.wrapHelper()), ['upper', 'lower']);
+      assert.deepEqual(Object.keys(asyncHelpers.wrappedHelpers), ['upper', 'lower']);
     });
   });
 
   describe('helpers', function() {
-    it('should return actual value when not wrapped', function() {
+    it('should return actual value when not wrapped and not async', function() {
       var upper = function(str) {
         return str.toUpperCase();
       };
-      asyncHelpers.set('upper', upper);
-      assert.deepEqual(asyncHelpers.get('upper')('doowb'), 'DOOWB');
+      asyncHelpers.helper('upper', upper);
+      assert.strictEqual(typeof asyncHelpers.helper('upper'), 'function');
+      assert.strictEqual(asyncHelpers.helper('upper')('doowb'), 'DOOWB');
     });
 
-    it('should return an async id when helper is asynchronous', function() {
-      var upper = async function(str) {
-        return str.toUpperCase();
-      };
-      asyncHelpers.set('upper', upper);
-      assert.ok(asyncHelpers.get('upper')('doowb').startsWith('{$ASYNCID$'));
+    it('should return an async id when helper is asynchronous', async() => {
+      asyncHelpers.helper('upperAsync', async(str) => str && str.toUpperCase());
+      asyncHelpers.helper('upperCb', (str, cb) => {
+        cb(null, str && str.toUpperCase());
+      });
+
+      // we need to use `.wrapHelper`, instead of `.helper` method
+      // because `helper` gets the raw "as is" helper, as it was defined.
+      // Only the wrapped helpers are returning async ids.
+      const upperAsync = asyncHelpers.wrapHelper('upperAsync');
+      const upperCb = asyncHelpers.wrapHelper('upperCb');
+
+      assert.ok(asyncHelpers.prefix === '@@@ASYNCID@', 'default async id prefix should be @@@ASYNCID@');
+
+      // we dont need `await`, because the returned wrapped
+      // helper is always a regular function
+      const resAsync = upperAsync('doowb');
+      assert.ok(resAsync.startsWith(asyncHelpers.prefix));
+
+      const resCb = upperCb('doowb');
+      assert.ok(resCb.startsWith(asyncHelpers.prefix));
+
+      // non wrapped helper
+      const upper = asyncHelpers.helper('upperAsync');
+
+      // we need `await` here, because the helper is regular `async` function
+      const res = await upper('foobar');
+      assert.strictEqual(res, 'FOOBAR');
     });
 
-    it.skip('should increment globalCounter for multiple instances of AsyncHelpers', function() {
-      var asyncHelpers2 = new AsyncHelpers();
-      assert.notEqual(asyncHelpers.globalCounter, asyncHelpers2.globalCounter);
-      assert.equal(asyncHelpers.globalCounter, 0);
-      assert.equal(asyncHelpers2.globalCounter, 1);
-    });
+    it('should return an async id with a custom prefix', async function() {
+      const customPrefix = '~!@custom@prefix@@';
+      var asyncHelpers2 = new AsyncHelpers({ prefix: customPrefix });
 
-    it('should return an async id with a custom prefix', function() {
-      var asyncHelpers2 = new AsyncHelpers({ prefix: '{$custom$prefix$$' });
-      var upper = function(str, cb) {
+      assert.ok(asyncHelpers2.prefix === customPrefix, 'incorrect prefix');
+
+      asyncHelpers2.helper('upper', (str, cb) => {
         cb(null, str.toUpperCase());
-      };
-      asyncHelpers2.set('upper', upper);
-      assert.ok(asyncHelpers2.get('upper')('doowb').startsWith('{$custom$prefix$$'));
+      });
+
+      const upper = asyncHelpers2.wrapHelper('upper');
+      assert.ok((await upper('doowb')).startsWith(customPrefix));
     });
 
     it('should support helpers that take arrays as an argument', function() {
@@ -111,15 +135,14 @@ describe('async-helpers', function() {
       // use the async mapSeries function for the helper
       var map = async.mapSeries;
 
-      asyncHelpers.set('map', map);
-      var helper = asyncHelpers.get('map');
+      asyncHelpers.helper('map', map);
+      var wrappedHelper = asyncHelpers.wrapHelper('map');
 
       // call the helper to get the id
-      var id = helper(['doowb', 'jonschlinkert'], upper);
-      assert.ok(id.startsWith('{$ASYNCID'));
+      var id = wrappedHelper(['doowb', 'jonschlinkert'], upper);
+      assert.ok(id.startsWith(asyncHelpers.prefix));
 
-      // resolveId the id
-      return asyncHelpers.resolve(id)
+      return asyncHelpers.resolveIds(id)
         .then(function(val) {
           assert.deepEqual(val, ['DOOWB', 'JONSCHLINKERT']);
         });
@@ -141,42 +164,45 @@ describe('async-helpers', function() {
         next(null, res);
       };
 
-      asyncHelpers.set('user', user);
-      asyncHelpers.set('profile', profile);
-      var userHelper = asyncHelpers.get('user');
-      var userId = userHelper('doowb');
-      assert.ok(userId.startsWith('{$ASYNCID$'));
+      asyncHelpers.helper('user', user);
+      asyncHelpers.helper('profile', profile);
 
-      var profileHelper = asyncHelpers.get('profile');
+      var userHelper = asyncHelpers.wrapHelper('user');
+      var userId = userHelper('doowb');
+
+      assert.ok(userId.startsWith(asyncHelpers.prefix));
+
+      var profileHelper = asyncHelpers.wrapHelper('profile');
       var profileId = profileHelper(userId);
 
-      return asyncHelpers.resolve(profileId).then(function(val) {
+      return asyncHelpers.resolveIds(profileId).then(function(val) {
         assert.deepEqual(val, 'doowb');
       });
     });
   });
 
   describe('errors', function() {
-    // Not make much sense, it should be handled by the template engine
-    // We just care and handle only async helpers here.
-    // The sync helpers are processed even on engine rendering,
-    // even before the `.resolve()` calling.
-    it.skip('should handle errors in sync helpers', function() {
+    it('should handle thrown errors in sync helpers', function() {
       var asyncHelpers3 = new AsyncHelpers();
       var upper = function(str) {
-        throw new Error('yeah UPPER Error');
+        throw new Error('yeah UPPER sync Error');
       };
-      asyncHelpers3.set('upper', upper);
+      asyncHelpers3.helper('upper', upper);
 
-      var helper = asyncHelpers3.get('upper');
-      var id = helper('doowb');
+      // We need to wrap the helper, to test this
+      // because the non-wrapped one will throw directly,
+      // even before the `resolveIds` call.
+      // Because the `.helper()` method does nothing more than just type checking
+      // and adding/getting to/from a key value cache.
+      var wrappedHelper = asyncHelpers3.wrapHelper('upper');
+      var id = wrappedHelper('doowb');
 
-      return asyncHelpers3.resolve(id)
+      return asyncHelpers3.resolveIds(id)
         .then(function(val) {
           return Promise.reject(new Error('expected an error'));
         })
         .catch(function(err) {
-          assert.ok(/yeah UPPER Error/.test(err.message), 'expect to throw from sync helper');
+          assert.ok(/yeah UPPER sync Error/.test(err.message), 'expect to throw from sync helper');
         });
     });
 
@@ -185,12 +211,13 @@ describe('async-helpers', function() {
       var upper = function(str, next) {
         throw new Error('UPPER Error');
       };
-      upper.async = true;
-      asyncHelpers3.set('upper', upper);
-      var helper = asyncHelpers3.get('upper');
+
+      asyncHelpers3.helper('upper', upper);
+
+      var helper = asyncHelpers3.wrapHelper('upper');
       var id = helper('doowb');
 
-      return asyncHelpers3.resolve(id)
+      return asyncHelpers3.resolveIds(id)
         .then(function(val) {
           return Promise.reject(new Error('expected an error'));
         })
@@ -204,12 +231,13 @@ describe('async-helpers', function() {
       var upper = function(str, next) {
         next(new Error('async returned UPPER Error'));
       };
-      upper.async = true;
-      asyncHelpers3.set('upper', upper);
-      var helper = asyncHelpers3.get('upper');
+
+      asyncHelpers3.helper('upper', upper);
+
+      var helper = asyncHelpers3.wrapHelper('upper');
       var id = helper('doowb');
 
-      return asyncHelpers3.resolve(id)
+      return asyncHelpers3.resolveIds(id)
         .then(function(val) {
           return Promise.reject(new Error('expected an error'));
         })
@@ -224,13 +252,15 @@ describe('async-helpers', function() {
         throw new Error('circular UPPER Error');
       };
 
-      asyncHelpers3.set('upper', upper);
-      var helper = asyncHelpers3.get('upper');
+      asyncHelpers3.helper('upper', upper);
+
+      var helper = asyncHelpers3.wrapHelper('upper');
       var obj = {username: 'doowb'};
       obj.profile = obj;
+
       var id = helper(obj);
 
-      return asyncHelpers3.resolve(id)
+      return asyncHelpers3.resolveIds(id)
         .then(function(val) {
           return Promise.reject(new Error('expected an error'));
         })
@@ -245,7 +275,7 @@ describe('async-helpers', function() {
   //     var upper = function(str) {
   //       return str.toUpperCase();
   //     };
-  //     asyncHelpers.set('upper', upper);
+  //     asyncHelpers.helper('upper', upper);
   //     var fn = asyncHelpers.wrapHelper('upper');
   //     assert.equal(fn, upper);
   //     assert.deepEqual(fn('doowb'), 'DOOWB');
@@ -255,7 +285,7 @@ describe('async-helpers', function() {
   //     var upper = function(str) {
   //       return str.toUpperCase();
   //     };
-  //     asyncHelpers.set('upper', upper);
+  //     asyncHelpers.helper('upper', upper);
   //     var fn = asyncHelpers.wrapHelper('upper', {wrap: true});
   //     assert.notEqual(fn, upper);
   //     assert.notEqual(fn.toString(), upper.toString());
@@ -285,7 +315,7 @@ describe('async-helpers', function() {
   //       upper: function(str) { return str.toUpperCase(); },
   //       lower: function(str) { return str.toLowerCase(); }
   //     };
-  //     asyncHelpers.set(helpers);
+  //     asyncHelpers.helper(helpers);
   //     var obj = asyncHelpers.wrapHelper();
   //     assert.deepEqual(obj, helpers);
   //     assert.equal(obj.upper('doowb'), 'DOOWB');
@@ -297,7 +327,7 @@ describe('async-helpers', function() {
   //       upper: function(str) { return str.toUpperCase(); },
   //       lower: function(str) { return str.toLowerCase(); }
   //     };
-  //     asyncHelpers.set(helpers);
+  //     asyncHelpers.helper(helpers);
   //     var obj = asyncHelpers.wrapHelper({wrap: true});
   //     assert.notDeepEqual(obj, helpers);
   //     assert.equal(obj.upper('doowb'), '{$ASYNCID$0$0$}');
@@ -309,7 +339,7 @@ describe('async-helpers', function() {
   //     helpers.isGroup = true;
   //     helpers.upper = function(str) { return str.toUpperCase(); };
   //     helpers.lower = function(str) { return str.toLowerCase(); };
-  //     asyncHelpers.set('my-group', helpers);
+  //     asyncHelpers.helper('my-group', helpers);
   //     var res = asyncHelpers.wrapHelper('my-group');
   //     assert.deepEqual(res, helpers);
   //     assert.equal(res.upper('doowb'), 'DOOWB');

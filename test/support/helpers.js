@@ -5,6 +5,9 @@ var helpers = {
     upper: function(str) {
       return str.toUpperCase();
     },
+    upperAsync: async function(str) {
+      return str.toUpperCase();
+    },
     getPartial: function(str, options, cb) {
       var args = [].slice.call(arguments);
       cb = args.pop();
@@ -19,6 +22,7 @@ var helpers = {
     is: function(val, options, cb) {
       cb(null, val === true);
     },
+    equalSync: (a, b) => a == b,
     equals: function(a, b, options, cb) {
       cb(null, a == b);
     },
@@ -56,6 +60,9 @@ var helpers = {
   },
   lodash: {
     upper: function(str) {
+      return str.toUpperCase();
+    },
+    upperAsync: async function(str) {
       return str.toUpperCase();
     },
     lower: function(str, cb) {
