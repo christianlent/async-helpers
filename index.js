@@ -67,7 +67,7 @@ class AsyncHelpers {
     if (!name) {
       return this.wrapHelper(this.rawHelpers);
     }
-    helper = helper || this.rawHelpers[name] || this.wrappedHelpers[name];
+    helper = this.wrappedHelpers[name] || this.rawHelpers[name] || helper;
 
     if (helper && helper.wrapped) {
       return helper;
@@ -80,6 +80,7 @@ class AsyncHelpers {
     // if we only use `wrapHelper` as both defining and wrapping
     if (!this.rawHelpers[name]) {
       this.rawHelpers[name] = helper;
+      this.rawHelpers[name].wrapped = undefined;
     }
     const fn = isAsyncWithCb(helper) ? util.promisify(helper) : helper;
 
@@ -145,7 +146,7 @@ class AsyncHelpers {
       if (Array.isArray(arg)) {
         const res = [];
         for (const ele of arg) {
-          res.push(this.hasAsyncId(ele) ? await this.resolveId(val) : ele);
+          res.push(this.hasAsyncId(ele) ? await this.resolveId(ele) : ele);
         }
         return res;
       }

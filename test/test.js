@@ -179,6 +179,24 @@ describe('async-helpers', function() {
         assert.deepEqual(val, 'doowb');
       });
     });
+
+    it('should support sync and async value items in argument arrays', () => {
+      const helpers = new AsyncHelpers();
+
+      helpers.wrapHelper('upperAsync', async(val) => val && val.toUpperCase());
+
+      const upperAsync = helpers.wrapHelper('upperAsync');
+      const upperAsyncId = upperAsync('qux');
+
+      helpers.wrapHelper('addOne', (arr) => arr.map((x) => x + 1));
+
+      const addOneHelper = helpers.wrapHelper('addOne');
+      const result = addOneHelper(['aaa', upperAsyncId, 'foo', upperAsync('bar')]);
+
+      return helpers.resolveId(result).then((res) => {
+        assert.deepStrictEqual(res, ['aaa1', 'QUX1', 'foo1', 'BAR1']);
+      });
+    });
   });
 
   describe('errors', function() {
@@ -270,82 +288,60 @@ describe('async-helpers', function() {
     });
   });
 
-  // describe('wrapHelper', function() {
-  //   it('should return the helper when given the helper name', function() {
-  //     var upper = function(str) {
-  //       return str.toUpperCase();
-  //     };
-  //     asyncHelpers.helper('upper', upper);
-  //     var fn = asyncHelpers.wrapHelper('upper');
-  //     assert.equal(fn, upper);
-  //     assert.deepEqual(fn('doowb'), 'DOOWB');
-  //   });
+  describe('wrapHelper', () => {
+    it('should throw when `fn` is not a function and `name` not find in rawHelpers ', () => {
+      assert.throws(() => asyncHelpers.wrapHelper('upper'), TypeError);
+      assert.throws(() => asyncHelpers.wrapHelper('upper'), /cannot find helper "upper" name/);
+    });
 
-  //   it('should return the wrapped helper when given the helper name and wrap option is true', function() {
-  //     var upper = function(str) {
-  //       return str.toUpperCase();
-  //     };
-  //     asyncHelpers.helper('upper', upper);
-  //     var fn = asyncHelpers.wrapHelper('upper', {wrap: true});
-  //     assert.notEqual(fn, upper);
-  //     assert.notEqual(fn.toString(), upper.toString());
-  //     assert.deepEqual(fn('doowb'), '{$ASYNCID$0$0$}');
-  //   });
+    it('should return all defined helpers as wrapped', () => {
+      asyncHelpers.helper('one', () => 1);
+      asyncHelpers.helper('two', () => 2);
+      asyncHelpers.wrapHelper('three', () => 3);
+      asyncHelpers.wrapHelper('someAsync', async() => 4);
 
-  //   it('should return a function when given a function', function() {
-  //     var upper = function(str) {
-  //       return str.toUpperCase();
-  //     };
-  //     var fn = asyncHelpers.wrapHelper(upper);
-  //     assert.equal(fn, upper);
-  //     assert.deepEqual(fn('doowb'), 'DOOWB');
-  //   });
+      const rawHelpers = asyncHelpers.helper();
+      const wrappedHelpers = asyncHelpers.wrapHelper();
 
-  //   it('should return a wrapped function when given a function and wrap option is true', function() {
-  //     var upper = function(str) {
-  //       return str.toUpperCase();
-  //     };
-  //     var fn = asyncHelpers.wrapHelper(upper, {wrap: true});
-  //     assert.notEqual(fn, upper);
-  //     assert.deepEqual(fn('doowb'), '{$ASYNCID$0$0$}');
-  //   });
+      assert.deepEqual(Object.keys(rawHelpers), ['one', 'two', 'three', 'someAsync']);
+      assert.ok(wrappedHelpers.one);
+      assert.ok(wrappedHelpers.two);
+      assert.ok(wrappedHelpers.three);
+      assert.ok(wrappedHelpers.someAsync);
+    });
 
-  //   it('should return an object of helpers when given an object of helpers', function() {
-  //     var helpers = {
-  //       upper: function(str) { return str.toUpperCase(); },
-  //       lower: function(str) { return str.toLowerCase(); }
-  //     };
-  //     asyncHelpers.helper(helpers);
-  //     var obj = asyncHelpers.wrapHelper();
-  //     assert.deepEqual(obj, helpers);
-  //     assert.equal(obj.upper('doowb'), 'DOOWB');
-  //     assert.equal(obj.lower('DOOWB'), 'doowb');
-  //   });
+    it('returned wrapped helper should have `wrapped` prop on it which is true', () => {
+      const wrappedHelper = asyncHelpers.wrapHelper('foobar', () => 123);
 
-  //   it('should return an object of wrapped helpers when given an object of helpers and wrap option is true', function() {
-  //     var helpers = {
-  //       upper: function(str) { return str.toUpperCase(); },
-  //       lower: function(str) { return str.toLowerCase(); }
-  //     };
-  //     asyncHelpers.helper(helpers);
-  //     var obj = asyncHelpers.wrapHelper({wrap: true});
-  //     assert.notDeepEqual(obj, helpers);
-  //     assert.equal(obj.upper('doowb'), '{$ASYNCID$0$0$}');
-  //     assert.equal(obj.lower('DOOWB'), '{$ASYNCID$0$1$}');
-  //   });
+      assert.strictEqual(wrappedHelper.wrapped, true);
+      assert.strictEqual(wrappedHelper().startsWith(asyncHelpers.prefix), true);
 
-  //   it.skip('should return an object of helpers from a helper group', function() {
-  //     var helpers = function() {};
-  //     helpers.isGroup = true;
-  //     helpers.upper = function(str) { return str.toUpperCase(); };
-  //     helpers.lower = function(str) { return str.toLowerCase(); };
-  //     asyncHelpers.helper('my-group', helpers);
-  //     var res = asyncHelpers.wrapHelper('my-group');
-  //     assert.deepEqual(res, helpers);
-  //     assert.equal(res.upper('doowb'), 'DOOWB');
-  //     assert.equal(res.lower('DOOWB'), 'doowb');
-  //   });
-  // });
+      assert.ok(asyncHelpers.wrapHelper('foobar').wrapped);
+
+      const helper = asyncHelpers.helper('foobar');
+      assert.strictEqual(helper.wrapped, undefined);
+      assert.strictEqual(helper(), 123);
+    });
+
+    it('should return `fn` helper if it is already wrapped', () => {
+      const wrappedHelper = asyncHelpers.wrapHelper('fooqux', () => 123);
+      const helper = asyncHelpers.wrapHelper('fooqux', wrappedHelper);
+
+      assert.strictEqual(wrappedHelper.toString(), helper.toString());
+    });
+  });
+
+  describe('resolveId', () => {
+    it('should return rejected promise when cannot find async id ', () => {
+      return asyncHelpers.resolveId(123456)
+        .then(() => {
+          throw new Error('should throw an error');
+        })
+        .catch((err) => {
+          assert.ok(/cannot resolve helper with/.test(err.message));
+        });
+    });
+  });
 
   // describe('wrapHelpers', function() {
 
