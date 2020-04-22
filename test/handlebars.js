@@ -3,7 +3,7 @@
 var assert = require('assert');
 var Handlebars = require('handlebars');
 var helpers = require('./support/helpers').handlebars;
-var AsyncHelpers = require('../index');
+var AsyncHelpers = require('../dist/index').default;
 var asyncHelpers;
 var hbs;
 

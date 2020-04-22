@@ -1,9 +1,9 @@
 'use strict';
 
-var AsyncHelpers = require('..');
+const AsyncHelpers = require('..');
 
 // create a new instance of AsyncHelpers
-var asyncHelpers = new AsyncHelpers();
+const asyncHelpers = new AsyncHelpers();
 
 // some simple sync helpers
 function upper(str) {
@@ -44,7 +44,7 @@ function partialName(name, options) {
  */
 
 function invokePartialWrapper(partial, context, options) {
-  var env = Handlebars;
+  const env = Handlebars;
   if (options.hash) {
     context = Object.assign({}, context, options.hash);
     if (options.ids) {
@@ -53,7 +53,7 @@ function invokePartialWrapper(partial, context, options) {
   }
 
   partial = env.VM.resolvePartial.call(env.VM, partial, context, options);
-  var result = env.VM.invokePartial.call(env.VM, partial, context, options);
+  let result = env.VM.invokePartial.call(env.VM, partial, context, options);
 
   if (result == null && env.compile) {
     options.partials[options.name] = env.compile(partial, options);
@@ -61,7 +61,7 @@ function invokePartialWrapper(partial, context, options) {
   }
   if (result != null) {
     if (options.indent) {
-      let lines = result.split('\n');
+      const lines = result.split('\n');
       for (let i = 0, l = lines.length; i < l; i++) {
         if (!lines[i] && i + 1 === l) {
           break;
@@ -78,12 +78,12 @@ function invokePartialWrapper(partial, context, options) {
 }
 
 function __async_helpers_invokePartial(partial, context, options, cb) {
-  var id = options.name;
+  const id = options.name;
   console.log(options);
   asyncHelpers.resolveIds(id, function(err, name) {
     if (err) return cb(err);
     options.name = name;
-    var res = '';
+    let res = '';
     try {
       // similar to what's done in Handlebars invokePartialWrapper function
       // var partial = Handlebars.VM.resolvePartial.call(Handlebars.VM, partial, context, options);
@@ -115,13 +115,13 @@ asyncHelpers.set('__async_helpers_invokePartial', __async_helpers_invokePartial)
 
 // pull the helpers back out and wrap them
 // with async handling functionality
-var helpers = asyncHelpers.get({wrap: true});
+const helpers = asyncHelpers.get({wrap: true});
 
 // using Handlebars, render a template with the helpers
 var Handlebars = require('handlebars');
-var invokePartial = Handlebars.VM.invokePartial;
+const invokePartial = Handlebars.VM.invokePartial;
 Handlebars.VM.invokePartial = function(partial, context, options) {
-  var name = options.name;
+  const name = options.name;
   if (asyncHelpers.hasAsyncId(name)) {
     // create inline helper to invoke the partial when the helper is ready
     return helpers.__async_helpers_invokePartial.apply(this, arguments);
@@ -155,7 +155,7 @@ Handlebars.registerPartial('another-partial', `another-partial:
 
 `);
 
-var hbs = [
+const hbs = [
   'input: {{name}}',
   'upper: {{upper name}}',
   'lower: {{lower name}}',
@@ -164,9 +164,8 @@ var hbs = [
   'lower(upper): {{lower (upper name)}}',
   'spacer(upper, lower): {{spacer (upper name) (lower "X")}}',
   '  {{> another-partial }}',
-  '  {{> (partialName) }}',
+  '  {{> (partialName) }}'
 ].join('\n');
-
 
 // Handlebars.registerHelper('partialName', partialName);
 
@@ -174,10 +173,10 @@ var hbs = [
 Handlebars.registerHelper(helpers);
 
 // compile the template
-var hbsFn = Handlebars.compile(hbs);
+const hbsFn = Handlebars.compile(hbs);
 
 // render the template with a simple context object
-var hbsRendered = hbsFn({name: 'brian'});
+const hbsRendered = hbsFn({name: 'brian'});
 
 // rendered output will contain async IDs that need to be replaced
 console.log('Handlebars rendered:');
@@ -193,8 +192,8 @@ resolve(hbsRendered, function(err, rendered) {
 });
 
 // using Lodash, render a template with helpers
-var _ = require('lodash');
-var lodash = [
+const _ = require('lodash');
+const lodash = [
   'input: <%= name %>',
   'upper: <%= upper(name) %>',
   'lower: <%= lower(name) %>',
@@ -205,10 +204,10 @@ var lodash = [
 ].join('\n');
 
 // compile the template passing `helpers` in as `imports`
-var _fn = _.template(lodash, { imports: helpers});
+const _fn = _.template(lodash, { imports: helpers});
 
 // render the compiled template with the simple context object
-var _rendered = _fn({name: 'brian'});
+const _rendered = _fn({name: 'brian'});
 
 // rendered output will contain async IDs that need to be replaced
 console.log('lodash rendered:');

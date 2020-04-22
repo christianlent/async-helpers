@@ -1,7 +1,7 @@
 'use strict';
 
 var assert = require('assert');
-var AsyncHelpers = require('../index');
+var AsyncHelpers = require('../dist/index').default;
 var asyncHelpers = null;
 
 describe('async-helpers', function() {

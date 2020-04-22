@@ -3,7 +3,7 @@
 var assert = require('assert');
 var _ = require('lodash');
 var helpers = require('./support/helpers').lodash;
-var AsyncHelpers = require('../index');
+var AsyncHelpers = require('../dist/index').default;
 
 describe('lodash', function() {
   it('should work in lodash', function(done) {
