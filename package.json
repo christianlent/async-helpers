@@ -18,6 +18,7 @@
     "dist/*"
   ],
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
     "node": ">=4.0.0"
   },
